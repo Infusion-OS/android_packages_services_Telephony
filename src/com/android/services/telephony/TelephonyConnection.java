@@ -41,7 +41,6 @@ import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallManager;
 import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection.PostDialListener;
-import com.android.internal.telephony.gsm.SuppServiceNotification;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.SubscriptionController;
 import com.android.internal.telephony.cdma.CdmaCall;
@@ -49,6 +48,8 @@ import com.android.internal.telephony.gsm.*;
 import com.android.internal.telephony.gsm.GsmConnection;
 import com.android.internal.telephony.imsphone.ImsPhoneConnection;
 import com.android.internal.telephony.PhoneConstants;
+
+import com.android.phone.R;
 
 import java.lang.Override;
 import java.util.Arrays;
@@ -66,7 +67,6 @@ abstract class TelephonyConnection extends Connection {
     private static final int MSG_RINGBACK_TONE = 2;
     private static final int MSG_HANDOVER_STATE_CHANGED = 3;
     private static final int MSG_DISCONNECT = 4;
-    private static final int MSG_SUPP_SERVICE_NOTIFY = 5;
     private static final int MSG_PHONE_VP_ON = 6;
     private static final int MSG_PHONE_VP_OFF = 7;
     private static final int MSG_SUPP_SERVICE_FAILED = 8;
@@ -81,7 +81,6 @@ abstract class TelephonyConnection extends Connection {
     private static final String ACTION_SUPP_SERVICE_FAILURE =
             "org.codeaurora.ACTION_SUPP_SERVICE_FAILURE";
 
-    private SuppServiceNotification mSsNotification = null;
     private String[] mSubName = {"SUB 1", "SUB 2", "SUB 3"};
     private String mDisplayName;
     private boolean mVoicePrivacyState = false;
@@ -314,7 +313,7 @@ abstract class TelephonyConnection extends Connection {
         }
     };
 
-    com.android.internal.telephony.Connection mOriginalConnection;
+    /* package */ com.android.internal.telephony.Connection mOriginalConnection;
     private Call.State mOriginalConnectionState = Call.State.IDLE;
     private Bundle mOriginalConnectionExtras;
 
@@ -926,16 +925,7 @@ protected final void updateCallCapabilities() {
                     setRinging();
                     break;
                 case DISCONNECTED:
-                    mSsNotification = TelephonyGlobals.mSsNotification[getPhone().getPhoneId()];
-                    if (mSsNotification != null) {
-                        setDisconnected(DisconnectCauseUtil.toTelecomDisconnectCause(
-                                mOriginalConnection.getDisconnectCause(),
-                                mSsNotification.notificationType,
-                                mSsNotification.code));
-                        TelephonyGlobals.mSsNotification[getPhone().getPhoneId()] = null;
-                        DisconnectCauseUtil.mNotificationCode = 0xFF;
-                        DisconnectCauseUtil.mNotificationType = 0xFF;
-                    } else if(isEmergencyNumber &&
+                    if(isEmergencyNumber &&
                             (TelephonyManager.getDefault().getPhoneCount() > 1) &&
                             ((cause == android.telephony.DisconnectCause.EMERGENCY_TEMP_FAILURE) ||
                             (cause == android.telephony.DisconnectCause.EMERGENCY_PERM_FAILURE))) {
@@ -943,11 +933,10 @@ protected final void updateCallCapabilities() {
                         // EMERGENCY_TEMP_FAILURE & EMERGENCY_PERM_FAILURE, then redial on other sub.
                         emergencyRedial(cause, phone);
                         break;
-                    } else {
-                        setDisconnected(DisconnectCauseUtil.toTelecomDisconnectCause(
-                                mOriginalConnection.getDisconnectCause()));
                     }
                     resetDisconnectCause();
+                    setDisconnected(DisconnectCauseUtil.toTelecomDisconnectCause(
+                            mOriginalConnection.getDisconnectCause()), 0xFF, 0xFF);
                     close();
                     break;
                 case DISCONNECTING:
